@@ -1,13 +1,6 @@
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useContext, useEffect, useState, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { ExtensionProvider, ExtensionContext } from '@looker/extension-sdk-react';
-import { ComponentsProvider } from '@looker/components-providers';
-import { Select } from '@looker/components/Form/Inputs/Select';
-import { Box } from '@looker/components/Layout/Box';
-import { Card } from '@looker/components/Card';
-import { Heading } from '@looker/components/Text/Heading';
-import { Text } from '@looker/components/Text/Text';
-import { Spinner } from '@looker/components/Spinner';
 import styled, { createGlobalStyle } from 'styled-components';
 
 // Global styles for modern typography and smooth animations
@@ -22,25 +15,22 @@ const GlobalStyles = createGlobalStyle`
 `;
 
 // Beautiful glassmorphism card layout for premium look and feel
-const StyledCard = styled(Card)`
+const Container = styled.div`
   background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.5);
   border-radius: 12px;
-  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.08);
-  padding: 16px;
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.06);
+  padding: 14px;
   max-width: 320px;
   margin: 0 auto;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  user-select: none;
 
   &:hover {
-    box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.12);
+    box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.1);
     border: 1px solid rgba(255, 255, 255, 0.8);
-    transform: translateY(-2px);
   }
 `;
 
@@ -48,6 +38,7 @@ const TitleWrapper = styled.div`
   display: flex;
   align-items: center;
   gap: 8px;
+  margin-bottom: 8px;
 `;
 
 const Bullet = styled.div`
@@ -74,22 +65,153 @@ const Bullet = styled.div`
   }
 `;
 
-const SelectContainer = styled.div`
-  position: relative;
-  
-  .looker-Select-input {
-    border-radius: 8px;
-    border: 1.5px solid rgba(108, 92, 231, 0.2);
-    transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-    font-size: 14px;
-    font-weight: 500;
-    color: #2d3436;
+const Title = styled.h4`
+  font-size: 13px;
+  font-weight: 700;
+  color: #2d3436;
+  margin: 0;
+  letter-spacing: 0.3px;
+`;
 
-    &:focus, &:focus-within {
-      border-color: #6c5ce7;
-      box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.15);
+const DropdownContainer = styled.div`
+  position: relative;
+  width: 100%;
+`;
+
+const SelectButton = styled.button`
+  width: 100%;
+  padding: 10px 14px;
+  background: #ffffff;
+  border: 1.5px solid rgba(108, 92, 231, 0.25);
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #2d3436;
+  text-align: left;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s ease-in-out;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+
+  &:hover {
+    border-color: #6c5ce7;
+    background: #fcfbfe;
+  }
+
+  &:focus {
+    border-color: #6c5ce7;
+    box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.15);
+  }
+`;
+
+const ArrowIcon = styled.span<{ isOpen: boolean }>`
+  border: solid #6c5ce7;
+  border-width: 0 2px 2px 0;
+  display: inline-block;
+  padding: 3px;
+  transform: ${props => props.isOpen ? 'rotate(-135deg)' : 'rotate(45deg)'};
+  transition: transform 0.2s ease-in-out;
+  margin-top: ${props => props.isOpen ? '3px' : '-2px'};
+`;
+
+const DropdownList = styled.div<{ isOpen: boolean }>`
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 100%;
+  max-height: 200px;
+  background: #ffffff;
+  border: 1px solid rgba(108, 92, 231, 0.15);
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(31, 38, 135, 0.12);
+  overflow-y: auto;
+  z-index: 1000;
+  display: ${props => props.isOpen ? 'block' : 'none'};
+  animation: slideDown 0.2s ease-out;
+
+  @keyframes slideDown {
+    from {
+      opacity: 0;
+      transform: translateY(-8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
     }
   }
+
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: rgba(108, 92, 231, 0.3);
+    border-radius: 3px;
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background: rgba(108, 92, 231, 0.5);
+  }
+`;
+
+const DropdownItem = styled.div<{ isSelected: boolean }>`
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 500;
+  color: ${props => props.isSelected ? '#ffffff' : '#2d3436'};
+  background: ${props => props.isSelected ? 'linear-gradient(135deg, #6c5ce7, #8e2de2)' : 'transparent'};
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+
+  &:hover {
+    background: ${props => props.isSelected ? 'linear-gradient(135deg, #6c5ce7, #8e2de2)' : '#f3f0ff'};
+    color: ${props => props.isSelected ? '#ffffff' : '#6c5ce7'};
+  }
+
+  &:first-child {
+    border-top-left-radius: 7px;
+    border-top-right-radius: 7px;
+  }
+
+  &:last-child {
+    border-bottom-left-radius: 7px;
+    border-bottom-right-radius: 7px;
+  }
+`;
+
+const LoadingContainer = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 60px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #64748b;
+`;
+
+const Spinner = styled.div`
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(108, 92, 231, 0.15);
+  border-top-color: #6c5ce7;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-right: 8px;
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+`;
+
+const ErrorText = styled.div`
+  color: #d63031;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
 `;
 
 export const MonthEndFilter: React.FC = () => {
@@ -102,30 +224,28 @@ export const MonthEndFilter: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedValue, setSelectedValue] = useState<string>('');
+  const [isOpen, setIsOpen] = useState<boolean>(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown on click outside
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+    };
+  }, []);
 
   // Extract the current filter value for "Data Raportu"
   const currentFilters = (tileHostData && tileHostData.dashboardFilters) || {};
   const currentFilterValue = currentFilters['Data Raportu'] || '';
 
-  // Format YYYY-MM-DD to DD.MM.YYYY
-  const toDisplayFormat = (dateStr: string): string => {
-    if (!dateStr || !dateStr.includes('-')) return dateStr;
-    const parts = dateStr.split('-');
-    if (parts.length !== 3) return dateStr;
-    return parts[2] + '.' + parts[1] + '.' + parts[0];
-  };
-
-  // Format DD.MM.YYYY to YYYY-MM-DD
-  const toApiFormat = (dateStr: string): string => {
-    if (!dateStr || !dateStr.includes('.')) return dateStr;
-    const parts = dateStr.split('.');
-    if (parts.length !== 3) return dateStr;
-    return parts[2] + '-' + parts[1] + '-' + parts[0];
-  };
-
   // Calculate the end of the previous month relative to a date (default: today)
   const getPreviousMonthEndFormatted = (today: Date): string => {
-    // Setting date to 0 gets the last day of the previous month
     const prevMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0);
     const yyyy = prevMonthEnd.getFullYear();
     const mm = String(prevMonthEnd.getMonth() + 1).padStart(2, '0');
@@ -232,8 +352,6 @@ export const MonthEndFilter: React.FC = () => {
   useEffect(() => {
     if (loading || dates.length === 0) return;
 
-    // Check if the dashboard filter "Data Raportu" is already set.
-    // If not, calculate the last day of the previous month and update the dashboard.
     if (!currentFilterValue) {
       if (tileSDK) {
         const prevMonthEnd = getPreviousMonthEndFormatted(new Date());
@@ -254,8 +372,9 @@ export const MonthEndFilter: React.FC = () => {
     }
   }, [currentFilterValue]);
 
-  const handleSelectChange = (value: string) => {
+  const handleItemClick = (value: string) => {
     setSelectedValue(value);
+    setIsOpen(false);
     if (tileSDK) {
       tileSDK.updateFilters({
         'Data Raportu': value,
@@ -265,58 +384,51 @@ export const MonthEndFilter: React.FC = () => {
 
   if (loading) {
     return (
-      <ComponentsProvider>
+      <Container>
         <GlobalStyles />
-        <Box display="flex" alignItems="center" justifyContent="center" height="100px">
-          <Spinner size={32} />
-        </Box>
-      </ComponentsProvider>
+        <LoadingContainer>
+          <Spinner /> Ładowanie...
+        </LoadingContainer>
+      </Container>
     );
   }
 
   if (error) {
     return (
-      <ComponentsProvider>
+      <Container>
         <GlobalStyles />
-        <Box display="flex" alignItems="center" justifyContent="center" height="100px">
-          <Text color="critical" fontSize="small" fontWeight="semiBold">
-            {error}
-          </Text>
-        </Box>
-      </ComponentsProvider>
+        <ErrorText>{error}</ErrorText>
+      </Container>
     );
   }
 
-  // Map dates to options
-  const options = dates.map((d) => {
-    return {
-      label: d,
-      value: d,
-    };
-  });
-
   return (
-    <ComponentsProvider>
+    <Container>
       <GlobalStyles />
-      <Box p="xsmall">
-        <StyledCard>
-          <TitleWrapper>
-            <Bullet />
-            <Heading as="h4" fontSize="small" fontWeight="bold" color="#2d3436" m="none">
-              Data Raportu
-            </Heading>
-          </TitleWrapper>
-          <SelectContainer>
-            <Select
-              options={options}
-              value={selectedValue}
-              onChange={handleSelectChange}
-              placeholder="Wybierz datę..."
-            />
-          </SelectContainer>
-        </StyledCard>
-      </Box>
-    </ComponentsProvider>
+      <TitleWrapper>
+        <Bullet />
+        <Title>Data Raportu</Title>
+      </TitleWrapper>
+      <DropdownContainer ref={dropdownRef}>
+        <SelectButton onClick={() => setIsOpen(!isOpen)}>
+          {selectedValue || 'Wybierz datę...'}
+          <ArrowIcon isOpen={isOpen} />
+        </SelectButton>
+        <DropdownList isOpen={isOpen}>
+          {dates.map((d) => {
+            return (
+              <DropdownItem
+                key={d}
+                isSelected={d === selectedValue}
+                onClick={() => handleItemClick(d)}
+              >
+                {d}
+              </DropdownItem>
+            );
+          })}
+        </DropdownList>
+      </DropdownContainer>
+    </Container>
   );
 };
 

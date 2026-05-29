@@ -3,26 +3,6 @@ const babel = require('@babel/core');
 const fs = require('fs');
 const path = require('path');
 
-const lookerFixPlugin = {
-  name: 'looker-fix',
-  setup(build) {
-    build.onLoad({ filter: /@looker\/components\/.*index\.js$/ }, async (args) => {
-      const contents = await fs.promises.readFile(args.path, 'utf8');
-      const modifiedContents = contents.replace(
-        "export { theme, Theme } from '@looker/design-tokens';",
-        "export { theme } from '@looker/design-tokens'; export const Theme = {};"
-      ).replace(
-        "export { theme, Theme } from \"@looker/design-tokens\";",
-        "export { theme } from \"@looker/design-tokens\"; export const Theme = {};"
-      );
-      return {
-        contents: modifiedContents,
-        loader: 'js',
-      };
-    });
-  },
-};
-
 async function build() {
   console.log('Building extension...');
 
@@ -41,9 +21,7 @@ async function build() {
       alias: {
         'react': 'preact/compat',
         'react-dom': 'preact/compat',
-        'lodash': 'lodash-es',
       },
-      plugins: [lookerFixPlugin],
     });
 
     if (!result.outputFiles || result.outputFiles.length === 0) {
@@ -60,7 +38,7 @@ async function build() {
           '@babel/preset-env',
           {
             targets: {
-              ie: '11', // Forces full ES5 compliance, including removing all spreads
+              ie: '11', // Forces ES5 compliance
             },
             modules: false,
           },
@@ -91,7 +69,7 @@ async function build() {
       console.warn('WARNING: Spread operator (...) detected in the output bundle!');
       const matches = finalCode.match(/(\S{0,20}\.\.\.\S{0,20})/g);
       console.warn('Potential matches:', matches);
-      process.exit(1); // Fail the build to ensure compatibility
+      process.exit(1);
     } else {
       console.log('Success: No spread operators detected in the output bundle.');
     }
