@@ -14,7 +14,7 @@ async function build() {
       write: false, // get output in memory
       minify: false, // don't minify yet so we can run Babel easily
       target: 'es2015',
-      outfile: 'month_end_filter.js',
+      outfile: 'dist/month_end_filter.js',
       define: {
         'process.env.NODE_ENV': '"production"',
       },
@@ -57,7 +57,13 @@ async function build() {
     });
     finalCode = minified.code;
 
-    // 4. Verify no spread operators remain in the output
+    // 4. Make sure the output directory exists
+    const distDir = path.join(__dirname, 'dist');
+    if (!fs.existsSync(distDir)) {
+      fs.mkdirSync(distDir, { recursive: true });
+    }
+
+    // 5. Verify no spread operators remain in the output
     const containsSpread = /\.\.\.[a-zA-Z_$0-9\[\{]/.test(finalCode);
     if (containsSpread) {
       console.warn('WARNING: Spread operator (...) detected in the output bundle!');
@@ -68,7 +74,7 @@ async function build() {
       console.log('Success: No spread operators detected in the output bundle.');
     }
 
-    fs.writeFileSync(path.join(__dirname, 'month_end_filter.js'), finalCode);
+    fs.writeFileSync(path.join(distDir, 'month_end_filter.js'), finalCode);
     console.log('Build completed successfully!');
   } catch (error) {
     console.error('Build failed:', error);
