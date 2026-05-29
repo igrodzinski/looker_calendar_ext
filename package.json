@@ -8,20 +8,22 @@
     "develop": "node server.js"
   },
   "dependencies": {
-    "@looker/extension-sdk": "22.8.0",
-    "@looker/extension-sdk-react": "22.8.0",
+    "@looker/extension-sdk": "^26.8.0",
+    "@looker/extension-sdk-react": "^26.8.0",
+    "@looker/sdk": "^26.8.0",
     "preact": "^10.22.0",
     "react": "16.14.0",
     "react-dom": "16.14.0",
+    "react-router-dom": "^5.3.4",
     "styled-components": "5.3.11"
   },
   "devDependencies": {
+    "@babel/core": "^7.24.0",
+    "@babel/preset-env": "^7.24.0",
     "@types/react": "^16.9.0",
     "@types/react-dom": "^16.9.0",
     "@types/styled-components": "^5.1.26",
     "esbuild": "^0.20.0",
-    "@babel/core": "^7.24.0",
-    "@babel/preset-env": "^7.24.0",
     "typescript": "^5.0.0"
   }
 }

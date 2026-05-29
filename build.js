@@ -7,6 +7,26 @@ async function build() {
   console.log('Building extension...');
 
   try {
+    // Hotfix for @looker/sdk type-only export bug in ES modules
+    const sdkEsmIndex = path.join(__dirname, 'node_modules/@looker/sdk/lib/esm/index.js');
+    if (fs.existsSync(sdkEsmIndex)) {
+      let content = fs.readFileSync(sdkEsmIndex, 'utf8');
+      if (content.includes("export { ILooker40SDK } from './4.0/methodsInterface';")) {
+        console.log('Patching @looker/sdk ESM to remove empty interface export...');
+        content = content.replace("export { ILooker40SDK } from './4.0/methodsInterface';", "");
+        fs.writeFileSync(sdkEsmIndex, content, 'utf8');
+      }
+    }
+    const sdkCjsIndex = path.join(__dirname, 'node_modules/@looker/sdk/lib/index.js');
+    if (fs.existsSync(sdkCjsIndex)) {
+      let content = fs.readFileSync(sdkCjsIndex, 'utf8');
+      if (content.includes('return _methodsInterface.ILooker40SDK;')) {
+        console.log('Patching @looker/sdk CJS to remove empty interface export...');
+        content = content.replace('return _methodsInterface.ILooker40SDK;', 'return undefined;');
+        fs.writeFileSync(sdkCjsIndex, content, 'utf8');
+      }
+    }
+
     // 1. Bundle with esbuild targeting es2015
     const result = await esbuild.build({
       entryPoints: [path.join(__dirname, 'src/index.tsx')],
