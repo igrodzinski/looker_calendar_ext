@@ -333,6 +333,8 @@ export const MonthEndFilter: React.FC = () => {
   const [showDebug, setShowDebug] = useState<boolean>(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const expectedValueRef = useRef<string | null>(null);
+  const [startupOverrideComplete, setStartupOverrideComplete] = useState<boolean>(false);
+  const currentFilterValueRef = useRef<string>('');
 
   // Close dropdown on click outside
   useEffect(() => {
@@ -358,6 +360,11 @@ export const MonthEndFilter: React.FC = () => {
   const resolvedFilterKey = resolveFilterKey(currentFilters, 'Data Raportu');
   const currentFilterValueRaw = currentFilters[resolvedFilterKey] || '';
   const currentFilterValue = toIsoFormat(currentFilterValueRaw);
+
+  // Keep ref updated with latest filter value from Looker for the retry loop closure
+  useEffect(() => {
+    currentFilterValueRef.current = currentFilterValue;
+  }, [currentFilterValue]);
 
   // Calculate the end of the previous month relative to a date (default: today) in YYYY-MM-DD format
   const getPreviousMonthEndIso = (today: Date): string => {
@@ -462,22 +469,56 @@ export const MonthEndFilter: React.FC = () => {
     fetchDates();
   }, [coreSDK, tileHostData]);
 
-  // 2. Handle initial filter set and synchronization (always overwrite on start)
-  // We initialize as soon as tileSDK and tileHostData are available to update the dashboard filters immediately on load,
-  // without waiting for the slow date query to complete.
+  // 2. Handle initial filter set and synchronization (retry until Looker accepts the filter value)
+  // Looker might ignore filter updates sent too early during dashboard load.
+  // This effect retries every 1 second until the dashboard confirms the month-end value is set,
+  // up to a maximum of 15 attempts.
   useEffect(() => {
-    if (!initialized && tileSDK && tileHostData) {
-      const prevMonthEnd = getPreviousMonthEndIso(new Date());
-      expectedValueRef.current = prevMonthEnd; // Avoid race condition with old default values
+    if (startupOverrideComplete || !tileSDK || !tileHostData) return;
+
+    const targetValue = getPreviousMonthEndIso(new Date());
+    let attempts = 0;
+    const maxAttempts = 15;
+
+    const checkAndOverride = () => {
+      const currentVal = currentFilterValueRef.current;
+      
+      if (currentVal === targetValue) {
+        console.log('Looker Calendar Ext: Startup override confirmed by Looker after', attempts, 'attempts!');
+        setStartupOverrideComplete(true);
+        setInitialized(true);
+        clearInterval(intervalId);
+        return;
+      }
+
+      if (attempts >= maxAttempts) {
+        console.warn('Looker Calendar Ext: Reached max attempts for startup override. Stopping.');
+        setStartupOverrideComplete(true);
+        setInitialized(true);
+        clearInterval(intervalId);
+        return;
+      }
+
+      attempts++;
+      console.log('Looker Calendar Ext: Attempt', attempts, '- forcing date:', targetValue, '(current is:', currentVal, ')');
+      
+      expectedValueRef.current = targetValue;
+      setSelectedValue(targetValue);
+
       const updateObj: Record<string, string> = {};
-      updateObj[resolvedFilterKey] = prevMonthEnd;
+      updateObj[resolvedFilterKey] = targetValue;
       tileSDK.updateFilters(updateObj);
-      setSelectedValue(prevMonthEnd);
-      setInitialized(true);
-      // Trigger dashboard auto-refresh to fetch data using our new filter immediately
       tileSDK.runDashboard();
-    }
-  }, [tileSDK, tileHostData, initialized, resolvedFilterKey]);
+    };
+
+    // Run first check immediately
+    checkAndOverride();
+
+    // Set up interval for retrying if Looker drops early updates
+    const intervalId = setInterval(checkAndOverride, 1000);
+
+    return () => clearInterval(intervalId);
+  }, [tileSDK, tileHostData, startupOverrideComplete, resolvedFilterKey]);
 
   // Update selected value when filter value changes externally (only after initialization)
   useEffect(() => {
