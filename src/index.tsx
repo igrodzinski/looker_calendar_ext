@@ -293,6 +293,31 @@ const resolveFilterKey = (filters: Record<string, any>, targetLabel: string): st
   return targetLabel;
 };
 
+// Converts YYYY-MM-DD to DD.MM.YYYY
+const toDisplayFormat = (isoDate: string): string => {
+  if (!isoDate) return '';
+  const trimmed = isoDate.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    const parts = trimmed.split('-');
+    return parts[2] + '.' + parts[1] + '.' + parts[0];
+  }
+  return trimmed; // fallback if already formatted or different
+};
+
+// Converts DD.MM.YYYY or YYYY-MM-DD to YYYY-MM-DD
+const toIsoFormat = (dateStr: string): string => {
+  if (!dateStr) return '';
+  const trimmed = dateStr.trim();
+  if (/^\d{2}\.\d{2}\.\d{4}$/.test(trimmed)) {
+    const parts = trimmed.split('.');
+    return parts[2] + '-' + parts[1] + '-' + parts[0];
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return trimmed;
+  }
+  return trimmed;
+};
+
 export const MonthEndFilter: React.FC = () => {
   const context = useContext(ExtensionContext40);
   const tileSDK = context.tileSDK;
@@ -330,18 +355,19 @@ export const MonthEndFilter: React.FC = () => {
   // Extract the current filter value for "Data Raportu"
   const currentFilters = (tileHostData && tileHostData.dashboardFilters) || {};
   const resolvedFilterKey = resolveFilterKey(currentFilters, 'Data Raportu');
-  const currentFilterValue = currentFilters[resolvedFilterKey] || '';
+  const currentFilterValueRaw = currentFilters[resolvedFilterKey] || '';
+  const currentFilterValue = toIsoFormat(currentFilterValueRaw);
 
-  // Calculate the end of the previous month relative to a date (default: today)
-  const getPreviousMonthEndFormatted = (today: Date): string => {
+  // Calculate the end of the previous month relative to a date (default: today) in YYYY-MM-DD format
+  const getPreviousMonthEndIso = (today: Date): string => {
     const prevMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0);
     const yyyy = prevMonthEnd.getFullYear();
     const mm = String(prevMonthEnd.getMonth() + 1).padStart(2, '0');
     const dd = String(prevMonthEnd.getDate()).padStart(2, '0');
-    return dd + '.' + mm + '.' + yyyy; // Return DD.MM.YYYY
+    return yyyy + '-' + mm + '-' + dd; // Return YYYY-MM-DD
   };
 
-  // Helper to extract dates from raw query results
+  // Helper to extract dates from raw query results as YYYY-MM-DD strings
   const extractDatesFromResults = (results: any[]): string[] => {
     const dateSet = new Set<string>();
     if (!results || !Array.isArray(results)) return [];
@@ -355,10 +381,10 @@ export const MonthEndFilter: React.FC = () => {
         if (typeof val === 'string') {
           const trimmed = val.trim();
           if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-            const parts = trimmed.split('-');
-            dateSet.add(parts[2] + '.' + parts[1] + '.' + parts[0]);
-          } else if (/^\d{2}\.\d{2}\.\d{4}$/.test(trimmed)) {
             dateSet.add(trimmed);
+          } else if (/^\d{2}\.\d{2}\.\d{4}$/.test(trimmed)) {
+            const parts = trimmed.split('.');
+            dateSet.add(parts[2] + '-' + parts[1] + '-' + parts[0]);
           }
         }
       }
@@ -369,12 +395,11 @@ export const MonthEndFilter: React.FC = () => {
       uniqueDates.push(d);
     });
 
+    // Sort descending (newest date first)
     uniqueDates.sort((a, b) => {
-      const partsA = a.split('.');
-      const partsB = b.split('.');
-      const dateA = new Date(parseInt(partsA[2]), parseInt(partsA[1]) - 1, parseInt(partsA[0]));
-      const dateB = new Date(parseInt(partsB[2]), parseInt(partsB[1]) - 1, parseInt(partsB[0]));
-      return dateB.getTime() - dateA.getTime();
+      const timeA = new Date(a).getTime();
+      const timeB = new Date(b).getTime();
+      return timeB - timeA;
     });
 
     return uniqueDates;
@@ -410,7 +435,7 @@ export const MonthEndFilter: React.FC = () => {
           }
         }
 
-        // Programmatic fallback if no dates loaded from Looker query
+        // Programmatic fallback if no dates loaded from Looker query (generate as YYYY-MM-DD)
         if (fetchedDates.length === 0) {
           const generatedDates: string[] = [];
           const today = new Date();
@@ -419,7 +444,7 @@ export const MonthEndFilter: React.FC = () => {
             const yyyy = d.getFullYear();
             const mm = String(d.getMonth() + 1).padStart(2, '0');
             const dd = String(d.getDate()).padStart(2, '0');
-            generatedDates.push(dd + '.' + mm + '.' + yyyy);
+            generatedDates.push(yyyy + '-' + mm + '-' + dd);
           }
           fetchedDates = generatedDates;
         }
@@ -442,7 +467,7 @@ export const MonthEndFilter: React.FC = () => {
 
     if (!initialized) {
       if (tileSDK) {
-        const prevMonthEnd = getPreviousMonthEndFormatted(new Date());
+        const prevMonthEnd = getPreviousMonthEndIso(new Date());
         const updateObj: Record<string, string> = {};
         updateObj[resolvedFilterKey] = prevMonthEnd;
         tileSDK.updateFilters(updateObj);
@@ -501,7 +526,7 @@ export const MonthEndFilter: React.FC = () => {
       </TitleWrapper>
       <DropdownContainer ref={dropdownRef}>
         <SelectButton onClick={() => setIsOpen(!isOpen)}>
-          {selectedValue || 'Wybierz datę...'}
+          {selectedValue ? toDisplayFormat(selectedValue) : 'Wybierz datę...'}
           <ArrowIcon isOpen={isOpen} />
         </SelectButton>
         <DropdownList isOpen={isOpen}>
@@ -512,7 +537,7 @@ export const MonthEndFilter: React.FC = () => {
                 isSelected={d === selectedValue}
                 onClick={() => handleItemClick(d)}
               >
-                {d}
+                {toDisplayFormat(d)}
               </DropdownItem>
             );
           })}
@@ -528,8 +553,9 @@ export const MonthEndFilter: React.FC = () => {
             }}>zamknij</span>
           </DebugTitle>
           <DebugItem><strong>Dopasowany klucz:</strong> {resolvedFilterKey}</DebugItem>
-          <DebugItem><strong>Wybrana wartość:</strong> {selectedValue || 'brak'}</DebugItem>
-          <DebugItem><strong>Wartość w Lookerze:</strong> {currentFilterValue || 'brak'}</DebugItem>
+          <DebugItem><strong>Wybrana wartość (ISO):</strong> {selectedValue || 'brak'}</DebugItem>
+          <DebugItem><strong>Wartość w Lookerze (ISO):</strong> {currentFilterValue || 'brak'}</DebugItem>
+          <DebugItem><strong>Wartość w Lookerze (surowa):</strong> {currentFilters[resolvedFilterKey] || 'brak'}</DebugItem>
           <DebugItem>
             <strong>Wszystkie filtry w Lookerze:</strong>
             {Object.keys(currentFilters).length > 0 
