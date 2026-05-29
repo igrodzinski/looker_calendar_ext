@@ -332,6 +332,7 @@ export const MonthEndFilter: React.FC = () => {
   const [initialized, setInitialized] = useState<boolean>(false);
   const [showDebug, setShowDebug] = useState<boolean>(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const expectedValueRef = useRef<string | null>(null);
 
   // Close dropdown on click outside
   useEffect(() => {
@@ -468,6 +469,7 @@ export const MonthEndFilter: React.FC = () => {
     if (!initialized) {
       if (tileSDK) {
         const prevMonthEnd = getPreviousMonthEndIso(new Date());
+        expectedValueRef.current = prevMonthEnd; // Avoid race condition with old default values
         const updateObj: Record<string, string> = {};
         updateObj[resolvedFilterKey] = prevMonthEnd;
         tileSDK.updateFilters(updateObj);
@@ -481,15 +483,29 @@ export const MonthEndFilter: React.FC = () => {
 
   // Update selected value when filter value changes externally (only after initialization)
   useEffect(() => {
-    if (initialized && currentFilterValue) {
-      setSelectedValue(currentFilterValue);
+    if (!initialized) return;
+
+    const normalizedValue = currentFilterValue || '';
+
+    // Ignore incoming echoes or transitional updates that don't match our expected value
+    if (expectedValueRef.current !== null) {
+      if (normalizedValue === expectedValueRef.current) {
+        expectedValueRef.current = null; // Target matched, clear expectation
+      } else {
+        return; // Ignore older dashboard values while waiting for our change to propagate
+      }
     }
-  }, [currentFilterValue, initialized]);
+
+    if (normalizedValue !== selectedValue) {
+      setSelectedValue(normalizedValue);
+    }
+  }, [currentFilterValue, initialized, selectedValue]);
 
   const handleItemClick = (value: string) => {
     setSelectedValue(value);
     setIsOpen(false);
     if (tileSDK) {
+      expectedValueRef.current = value; // Avoid race condition during update
       const updateObj: Record<string, string> = {};
       updateObj[resolvedFilterKey] = value;
       tileSDK.updateFilters(updateObj);
