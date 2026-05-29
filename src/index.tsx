@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useState, useRef } from 'react';
 import ReactDOM from 'react-dom';
-import { ExtensionProvider, ExtensionContext } from '@looker/extension-sdk-react';
+import { ExtensionProvider40, ExtensionContext40 } from '@looker/extension-sdk-react';
 import styled, { createGlobalStyle } from 'styled-components';
 
 // Global styles for modern typography and smooth animations
@@ -215,7 +215,7 @@ const ErrorText = styled.div`
 `;
 
 export const MonthEndFilter: React.FC = () => {
-  const context = useContext(ExtensionContext);
+  const context = useContext(ExtensionContext40);
   const tileSDK = context.tileSDK;
   const tileHostData = context.tileHostData;
   const coreSDK = context.coreSDK;
@@ -434,17 +434,24 @@ export const MonthEndFilter: React.FC = () => {
 
 export const App: React.FC = () => {
   return (
-    <ExtensionProvider>
+    <ExtensionProvider40>
       <MonthEndFilter />
-    </ExtensionProvider>
+    </ExtensionProvider40>
   );
 };
 
-const root = document.getElementById('app') || (() => {
-  const div = document.createElement('div');
-  div.id = 'app';
-  document.body.appendChild(div);
-  return div;
-})();
+const renderApp = () => {
+  const root = document.getElementById('app') || (() => {
+    const div = document.createElement('div');
+    div.id = 'app';
+    document.body.appendChild(div);
+    return div;
+  })();
+  ReactDOM.render(<App />, root);
+};
 
-ReactDOM.render(<App />, root);
+if (document.body) {
+  renderApp();
+} else {
+  window.addEventListener('DOMContentLoaded', renderApp);
+}
