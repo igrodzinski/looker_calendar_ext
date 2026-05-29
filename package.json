@@ -4,7 +4,8 @@
   "description": "Looker calendar month end filter extension",
   "main": "dist/month_end_filter.js",
   "scripts": {
-    "build": "node build.js"
+    "build": "node build.js",
+    "develop": "node server.js"
   },
   "dependencies": {
     "@looker/components": "3.0.8",
