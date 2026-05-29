@@ -463,23 +463,21 @@ export const MonthEndFilter: React.FC = () => {
   }, [coreSDK, tileHostData]);
 
   // 2. Handle initial filter set and synchronization (always overwrite on start)
+  // We initialize as soon as tileSDK and tileHostData are available to update the dashboard filters immediately on load,
+  // without waiting for the slow date query to complete.
   useEffect(() => {
-    if (loading || dates.length === 0) return;
-
-    if (!initialized) {
-      if (tileSDK) {
-        const prevMonthEnd = getPreviousMonthEndIso(new Date());
-        expectedValueRef.current = prevMonthEnd; // Avoid race condition with old default values
-        const updateObj: Record<string, string> = {};
-        updateObj[resolvedFilterKey] = prevMonthEnd;
-        tileSDK.updateFilters(updateObj);
-        setSelectedValue(prevMonthEnd);
-        setInitialized(true);
-        // Trigger dashboard auto-refresh to fetch data using our new filter
-        tileSDK.runDashboard();
-      }
+    if (!initialized && tileSDK && tileHostData) {
+      const prevMonthEnd = getPreviousMonthEndIso(new Date());
+      expectedValueRef.current = prevMonthEnd; // Avoid race condition with old default values
+      const updateObj: Record<string, string> = {};
+      updateObj[resolvedFilterKey] = prevMonthEnd;
+      tileSDK.updateFilters(updateObj);
+      setSelectedValue(prevMonthEnd);
+      setInitialized(true);
+      // Trigger dashboard auto-refresh to fetch data using our new filter immediately
+      tileSDK.runDashboard();
     }
-  }, [loading, dates, tileSDK, initialized, resolvedFilterKey]);
+  }, [tileSDK, tileHostData, initialized, resolvedFilterKey]);
 
   // Update selected value when filter value changes externally (only after initialization)
   useEffect(() => {
