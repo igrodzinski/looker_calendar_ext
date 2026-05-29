@@ -473,6 +473,8 @@ export const MonthEndFilter: React.FC = () => {
         tileSDK.updateFilters(updateObj);
         setSelectedValue(prevMonthEnd);
         setInitialized(true);
+        // Trigger dashboard auto-refresh to fetch data using our new filter
+        tileSDK.runDashboard();
       }
     }
   }, [loading, dates, tileSDK, initialized, resolvedFilterKey]);
@@ -491,6 +493,8 @@ export const MonthEndFilter: React.FC = () => {
       const updateObj: Record<string, string> = {};
       updateObj[resolvedFilterKey] = value;
       tileSDK.updateFilters(updateObj);
+      // Automatically refresh the dashboard when the user changes the filter
+      tileSDK.runDashboard();
     }
   };
 
