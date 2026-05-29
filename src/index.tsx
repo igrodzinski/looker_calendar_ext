@@ -214,6 +214,85 @@ const ErrorText = styled.div`
   text-align: center;
 `;
 
+const DebugPanel = styled.div`
+  margin-top: 12px;
+  padding: 10px;
+  background: rgba(45, 52, 54, 0.05);
+  border: 1px dashed rgba(108, 92, 231, 0.3);
+  border-radius: 8px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 11px;
+  color: #2d3436;
+  max-height: 150px;
+  overflow-y: auto;
+  text-align: left;
+  word-break: break-all;
+
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: rgba(108, 92, 231, 0.2);
+    border-radius: 2px;
+  }
+`;
+
+const DebugTitle = styled.div`
+  font-weight: 700;
+  color: #6c5ce7;
+  margin-bottom: 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+`;
+
+const DebugItem = styled.div`
+  margin-bottom: 3px;
+`;
+
+const normalizeKey = (str: string): string => {
+  if (!str) return '';
+  return str
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // remove diacritics
+    .replace(/[^a-z0-9]/g, ''); // keep only alpha-numeric characters
+};
+
+const resolveFilterKey = (filters: Record<string, any>, targetLabel: string): string => {
+  const keys = Object.keys(filters);
+  if (keys.length === 0) return targetLabel;
+
+  // 1. Exact match
+  if (filters[targetLabel] !== undefined) return targetLabel;
+
+  const normalizedTarget = normalizeKey(targetLabel);
+
+  // 2. Normalized match (e.g. "dataraportu" matches "data_raportu")
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    if (normalizeKey(key) === normalizedTarget) {
+      return key;
+    }
+  }
+
+  // 3. Substring match
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    const normKey = normalizeKey(key);
+    if (normKey.indexOf(normalizedTarget) !== -1 || normalizedTarget.indexOf(normKey) !== -1) {
+      return key;
+    }
+  }
+
+  // 4. If there's only one key, let's use it!
+  if (keys.length === 1) {
+    return keys[0];
+  }
+
+  return targetLabel;
+};
+
 export const MonthEndFilter: React.FC = () => {
   const context = useContext(ExtensionContext40);
   const tileSDK = context.tileSDK;
@@ -226,6 +305,7 @@ export const MonthEndFilter: React.FC = () => {
   const [selectedValue, setSelectedValue] = useState<string>('');
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [initialized, setInitialized] = useState<boolean>(false);
+  const [showDebug, setShowDebug] = useState<boolean>(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown on click outside
@@ -241,9 +321,16 @@ export const MonthEndFilter: React.FC = () => {
     };
   }, []);
 
+  // Log filter changes for developer visibility in browser console
+  useEffect(() => {
+    console.log('Looker Calendar Ext - tileHostData:', tileHostData);
+    console.log('Looker Calendar Ext - dashboardFilters:', tileHostData && tileHostData.dashboardFilters);
+  }, [tileHostData]);
+
   // Extract the current filter value for "Data Raportu"
   const currentFilters = (tileHostData && tileHostData.dashboardFilters) || {};
-  const currentFilterValue = currentFilters['Data Raportu'] || '';
+  const resolvedFilterKey = resolveFilterKey(currentFilters, 'Data Raportu');
+  const currentFilterValue = currentFilters[resolvedFilterKey] || '';
 
   // Calculate the end of the previous month relative to a date (default: today)
   const getPreviousMonthEndFormatted = (today: Date): string => {
@@ -356,14 +443,14 @@ export const MonthEndFilter: React.FC = () => {
     if (!initialized) {
       if (tileSDK) {
         const prevMonthEnd = getPreviousMonthEndFormatted(new Date());
-        tileSDK.updateFilters({
-          'Data Raportu': prevMonthEnd,
-        });
+        const updateObj: Record<string, string> = {};
+        updateObj[resolvedFilterKey] = prevMonthEnd;
+        tileSDK.updateFilters(updateObj);
         setSelectedValue(prevMonthEnd);
         setInitialized(true);
       }
     }
-  }, [loading, dates, tileSDK, initialized]);
+  }, [loading, dates, tileSDK, initialized, resolvedFilterKey]);
 
   // Update selected value when filter value changes externally (only after initialization)
   useEffect(() => {
@@ -376,9 +463,9 @@ export const MonthEndFilter: React.FC = () => {
     setSelectedValue(value);
     setIsOpen(false);
     if (tileSDK) {
-      tileSDK.updateFilters({
-        'Data Raportu': value,
-      });
+      const updateObj: Record<string, string> = {};
+      updateObj[resolvedFilterKey] = value;
+      tileSDK.updateFilters(updateObj);
     }
   };
 
@@ -405,9 +492,12 @@ export const MonthEndFilter: React.FC = () => {
   return (
     <Container>
       <GlobalStyles />
-      <TitleWrapper>
+      <TitleWrapper onClick={() => setShowDebug(!showDebug)} style={{ cursor: 'pointer' }}>
         <Bullet />
         <Title>Data Raportu</Title>
+        <span style={{ fontSize: '9px', opacity: 0.4, marginLeft: 'auto' }}>
+          {showDebug ? '▲ ukryj debug' : '▼ debug'}
+        </span>
       </TitleWrapper>
       <DropdownContainer ref={dropdownRef}>
         <SelectButton onClick={() => setIsOpen(!isOpen)}>
@@ -428,6 +518,28 @@ export const MonthEndFilter: React.FC = () => {
           })}
         </DropdownList>
       </DropdownContainer>
+      {showDebug && (
+        <DebugPanel>
+          <DebugTitle>
+            <span>Diagnostyka filtra</span>
+            <span style={{ cursor: 'pointer', textDecoration: 'underline' }} onClick={(e) => {
+              e.stopPropagation();
+              setShowDebug(false);
+            }}>zamknij</span>
+          </DebugTitle>
+          <DebugItem><strong>Dopasowany klucz:</strong> {resolvedFilterKey}</DebugItem>
+          <DebugItem><strong>Wybrana wartość:</strong> {selectedValue || 'brak'}</DebugItem>
+          <DebugItem><strong>Wartość w Lookerze:</strong> {currentFilterValue || 'brak'}</DebugItem>
+          <DebugItem>
+            <strong>Wszystkie filtry w Lookerze:</strong>
+            {Object.keys(currentFilters).length > 0 
+              ? ' ' + Object.keys(currentFilters).join(', ') 
+              : ' Brak (pusta lista)'}
+          </DebugItem>
+          <DebugItem><strong>Query ID:</strong> {tileHostData?.queryId || 'brak'}</DebugItem>
+          <DebugItem><strong>Dashboard ID:</strong> {tileHostData?.dashboardId || 'brak'}</DebugItem>
+        </DebugPanel>
+      )}
     </Container>
   );
 };
