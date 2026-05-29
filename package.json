@@ -2,7 +2,7 @@
   "name": "looker_calendar_ext",
   "version": "1.0.0",
   "description": "Looker calendar month end filter extension",
-  "main": "dist/month_end_filter.js",
+  "main": "month_end_filter.js",
   "scripts": {
     "build": "node build.js",
     "develop": "node server.js"
