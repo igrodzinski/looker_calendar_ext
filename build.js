@@ -18,10 +18,6 @@ async function build() {
       define: {
         'process.env.NODE_ENV': '"production"',
       },
-      alias: {
-        'react': 'preact/compat',
-        'react-dom': 'preact/compat',
-      },
     });
 
     if (!result.outputFiles || result.outputFiles.length === 0) {
