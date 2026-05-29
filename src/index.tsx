@@ -225,6 +225,7 @@ export const MonthEndFilter: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedValue, setSelectedValue] = useState<string>('');
   const [isOpen, setIsOpen] = useState<boolean>(false);
+  const [initialized, setInitialized] = useState<boolean>(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown on click outside
@@ -348,29 +349,28 @@ export const MonthEndFilter: React.FC = () => {
     fetchDates();
   }, [coreSDK, tileHostData]);
 
-  // 2. Handle initial filter set and synchronization
+  // 2. Handle initial filter set and synchronization (always overwrite on start)
   useEffect(() => {
     if (loading || dates.length === 0) return;
 
-    if (!currentFilterValue) {
+    if (!initialized) {
       if (tileSDK) {
         const prevMonthEnd = getPreviousMonthEndFormatted(new Date());
         tileSDK.updateFilters({
           'Data Raportu': prevMonthEnd,
         });
         setSelectedValue(prevMonthEnd);
+        setInitialized(true);
       }
-    } else {
-      setSelectedValue(currentFilterValue);
     }
-  }, [loading, dates, currentFilterValue, tileSDK]);
+  }, [loading, dates, tileSDK, initialized]);
 
-  // Update selected value when filter value changes externally
+  // Update selected value when filter value changes externally (only after initialization)
   useEffect(() => {
-    if (currentFilterValue) {
+    if (initialized && currentFilterValue) {
       setSelectedValue(currentFilterValue);
     }
-  }, [currentFilterValue]);
+  }, [currentFilterValue, initialized]);
 
   const handleItemClick = (value: string) => {
     setSelectedValue(value);
