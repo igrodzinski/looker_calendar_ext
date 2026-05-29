@@ -1,7 +1,13 @@
 import React, { useContext, useEffect, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { ExtensionProvider, ExtensionContext } from '@looker/extension-sdk-react';
-import { ComponentsProvider, Select, Box, Card, Heading, Text, Spinner } from '@looker/components';
+import { ComponentsProvider } from '@looker/components-providers';
+import { Select } from '@looker/components/Form/Inputs/Select';
+import { Box } from '@looker/components/Layout/Box';
+import { Card } from '@looker/components/Card';
+import { Heading } from '@looker/components/Text/Heading';
+import { Text } from '@looker/components/Text/Text';
+import { Spinner } from '@looker/components/Spinner';
 import styled, { createGlobalStyle } from 'styled-components';
 
 // Global styles for modern typography and smooth animations

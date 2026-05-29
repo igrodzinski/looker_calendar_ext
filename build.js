@@ -38,6 +38,11 @@ async function build() {
       define: {
         'process.env.NODE_ENV': '"production"',
       },
+      alias: {
+        'react': 'preact/compat',
+        'react-dom': 'preact/compat',
+        'lodash': 'lodash-es',
+      },
       plugins: [lookerFixPlugin],
     });
 
@@ -66,16 +71,21 @@ async function build() {
 
     let finalCode = babelResult.code;
 
-    // 3. Make sure the output directory exists
+    // 3. Minify the transpiled ES5 code
+    console.log('Minifying with esbuild targeting es5...');
+    const minified = await esbuild.transform(finalCode, {
+      minify: true,
+      target: 'es5',
+    });
+    finalCode = minified.code;
+
+    // 4. Make sure the output directory exists
     const distDir = path.join(__dirname, 'dist');
     if (!fs.existsSync(distDir)) {
       fs.mkdirSync(distDir, { recursive: true });
     }
 
-    // 4. Verify no spread operators remain in the output
-    // A spread operator in JS can be identified by the "..." sequence.
-    // We check for any "..." that are followed by alphanumeric characters or symbols,
-    // indicating spread syntax (e.g. "...x" or "...[") rather than ellipsis in a string.
+    // 5. Verify no spread operators remain in the output
     const containsSpread = /\.\.\.[a-zA-Z_$0-9\[\{]/.test(finalCode);
     if (containsSpread) {
       console.warn('WARNING: Spread operator (...) detected in the output bundle!');
